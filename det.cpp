@@ -3,6 +3,7 @@
 #include <pthread.h> 
 #include <vector> 
 #define dimension 3 
+#define max_threads 10
 
 using namespace std; 
 
@@ -12,7 +13,13 @@ int mat[][dimension] = { { 2, -1, 5 },
 					{ 4, 0, 6 } }; 
 
 int det[dimension]; //to store determinant values of submatrices
-pthread_t thread[dimension]; 
+pthread_t thread_pool1[max_threads];
+pthread_t thread_pool2[max_threads]; 
+
+
+
+
+//============== Determinant Sectioin =================================//
 
 // function to compute determinants of submatrices
 int determinant(vector<vector<int> > mat2, int d) 
@@ -64,7 +71,7 @@ int determinant(vector<vector<int> > mat2, int d)
 } 
 
 // the funtion which will be used for multithreading. No of threads = dimension of matrix . 
-void* onethread(void* sub_matrix) 
+void* determ_thread(void* sub_matrix) 
 { 
 	int *sb_matrix = (int *)sub_matrix, i, j, k; 
 	vector<vector<int> > mat2(dimension - 1); 
@@ -90,10 +97,10 @@ void* onethread(void* sub_matrix)
     return p;
 } 
 
-// driver function 
-int main() 
-{ 
-	int i, j, detfin = 0; 
+
+void* calculate_determinant(void *arg){
+
+    int i, j, detfin = 0; 
 	int p[dimension]; 
 	
 	// storing the first row in a array 
@@ -102,17 +109,17 @@ int main()
 	for (i = 0; i < dimension; i++) 
 		det[i] = mat[0][i]; 
 		
-	// creating thread 
+	// creating threads to calculate determinants of submatrices
 	for (i = 0; i < dimension; i++) { 
 		p[i] = i; 
-		pthread_create(&thread[i], NULL, &onethread, (void*)&p[i]); 
+		pthread_create(&thread_pool2[i], NULL, &determ_thread, (void*)&p[i]); 
 	} 
-	
-	// waiting for all the threads to join 
-	pthread_join(thread[0], NULL); 
-	pthread_join(thread[1], NULL); 
-	pthread_join(thread[2], NULL); 
-	pthread_join(thread[3], NULL); 
+    //join all threads
+	for (i = 0; i < dimension; i++) { 
+		pthread_join(thread_pool2[i], NULL); 
+
+	} 
+    //compute final determinant from determinants of submatrices
 	for (i = 0; i < dimension; i++) { 
 		if (i % 2 == 0) 
 			detfin += det[i]; 
@@ -120,7 +127,43 @@ int main()
 			detfin -= det[i]; 
 	} 
 	
-	cout << detfin << endl; 
-	
-	return 0; 
+	cout <<"Determinant of the matrix is "<< detfin << endl; 
+}
+
+
+// =================== Transpose Section =========================//
+
+
+
+void* calculate_transpose(void *arg){
+    
+    vector<vector<int> > trans = {
+        {0,0,0},
+        {0,0,0},
+        {0,0,0} //initialise with dummy values
+    };
+
+    for(int i=0;i< dimension;i++){
+        for(int j=0;j< dimension;j++)
+            trans[j][i] = mat[i][j]; //where mat[][] is the global matrix 
+    }
+    cout <<"\n The transpose of the matrix is \n ";
+    for(int i=0;i<dimension; i++){
+
+        for(int j=0;j<dimension;j++)   
+            cout<<trans[i][j]<<"  ";
+        cout<<"\n";
+    }
+
+}
+
+// driver function 
+int main() 
+{ 
+	pthread_create(&thread_pool1[0], NULL, &calculate_determinant, NULL); 
+    pthread_create(&thread_pool1[1], NULL, &calculate_transpose, NULL); 
+
+	pthread_join(thread_pool1[0], NULL);
+    pthread_join(thread_pool1[1], NULL);
+	return 0;  
 } 
